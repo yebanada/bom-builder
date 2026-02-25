@@ -10,22 +10,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 📥 Checkout
+      # 1️⃣ Checkout code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ☕ Setup Java
-      - name: Setup Java 17
+      # 2️⃣ Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      # 🤖 Setup Android SDK
+      # 3️⃣ Setup Android SDK
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # 🏗 Create Android Project Structure
+      # 4️⃣ Create minimal Android project
       - name: Create Android Project
         run: |
           mkdir -p app/src/main/java/com/bom
@@ -51,13 +51,111 @@ jobs:
           include ':app'
           EOF
 
-          # build.gradle (project)
+          # Project build.gradle
           cat > build.gradle << 'EOF'
           plugins {
               id 'com.android.application' version '8.2.2' apply false
           }
           EOF
 
-          # gradle.properties
+          # Gradle properties
           cat > gradle.properties << 'EOF'
-          org.gradle.jvmargs=-Xmx2048m -D
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          EOF
+
+          # App build.gradle
+          cat > app/build.gradle << 'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.bom.app'
+              compileSdk 34
+
+              defaultConfig {
+                  applicationId "com.bom.app"
+                  minSdk 24
+                  targetSdk 34
+                  versionCode Integer.parseInt(System.getenv("GITHUB_RUN_NUMBER") ?: "1")
+                  versionName "v${System.getenv("GITHUB_RUN_NUMBER") ?: "1.0"}"
+              }
+
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                  }
+                  debug {
+                      debuggable true
+                  }
+              }
+
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+              implementation 'androidx.webkit:webkit:1.9.0'
+          }
+          EOF
+
+          # AndroidManifest
+          cat > app/src/main/AndroidManifest.xml << 'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application
+                  android:label="Bom"
+                  android:theme="@style/Theme.AppCompat.Light.DarkActionBar">
+                  <activity android:name=".MainActivity">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # MainActivity
+          cat > app/src/main/java/com/bom/MainActivity.java << 'EOF'
+          package com.bom;
+
+          import android.os.Bundle;
+          import android.webkit.WebView;
+          import androidx.appcompat.app.AppCompatActivity;
+
+          public class MainActivity extends AppCompatActivity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+
+                  WebView webView = new WebView(this);
+                  setContentView(webView);
+                  webView.getSettings().setJavaScriptEnabled(true);
+                  webView.loadUrl("https://yebanada.github.io/Smart-task/");
+              }
+          }
+          EOF
+
+      # 5️⃣ Install Gradle wrapper
+      - name: Install Gradle
+        run: |
+          wget https://services.gradle.org/distributions/gradle-8.2-bin.zip
+          unzip gradle-8.2-bin.zip
+          export PATH=$PWD/gradle-8.2/bin:$PATH
+          gradle wrapper
+
+      # 6️⃣ Build APK
+      - name: Build APK
+        run: ./gradlew assembleRelease
+
+      # 7️⃣ Upload APK
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: bom-apk
+          path: app/build/outputs/apk/release/*.apk
