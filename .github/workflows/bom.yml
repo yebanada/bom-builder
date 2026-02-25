@@ -160,3 +160,5 @@ jobs:
           name: bom-apk
           path: app/build/outputs/apk/release/*.apk
       - name: Upload a Build Artifact: actions/upload-artifact@v6.0.0
+      - name: Upload a Build Artifact
+        uses: actions/upload-artifact@v6.0.0
